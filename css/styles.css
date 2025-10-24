@@ -1,0 +1,67 @@
+/* Family Spot’s Map — styles.css */
+:root{
+  --bg:#0f1620; --bg2:#152234; --text:#e9eef5; --muted:#9fb3c8;
+  --accent:#4eb5ff; --ok:#2ecc71; --warn:#ffae42; --err:#ff5d5d;
+  --chip:#1f314a; --border:rgba(255,255,255,.12);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:#0b1220;color:var(--text);
+  font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+.hidden{display:none}
+
+.page{min-height:100%;display:flex;flex-direction:column}
+#map{flex:1 1 auto;min-height:400px}
+
+/* Header / Toolbar */
+.site-header{background:var(--bg);border-bottom:1px solid var(--border);
+  padding:14px 16px 10px;display:flex;flex-wrap:wrap;gap:10px 16px;
+  align-items:center;justify-content:space-between;position:sticky;top:0;z-index:500}
+.title-wrap{display:flex;flex-direction:column}
+.title-wrap h1{margin:0;font-size:clamp(20px,2.6vw,32px)}
+.title-wrap .subtitle{margin:2px 0 0;color:var(--muted);font-weight:500}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{background:#1b2942;border:1px solid var(--border);color:var(--text);
+  padding:8px 10px;border-radius:10px;cursor:pointer;font-weight:600}
+.btn:hover{background:#223556}
+.btn:active{transform:translateY(1px)}
+.btn.active{outline:2px solid var(--accent)}
+.btn.primary,.btn.btn-primary{background:#2b67ff;border-color:#2b67ff}
+.btn.small{padding:6px 9px;font-size:.9rem}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.select,.search-wrap input{background:#0e1a2e;color:var(--text);border:1px solid var(--border);
+  padding:8px 10px;border-radius:10px;min-width:190px}
+
+/* Popup */
+.leaflet-popup-content-wrapper{background:#0f1a2b;color:var(--text);
+  border-radius:14px;border:1px solid var(--border)}
+.leaflet-popup-tip{background:#0f1a2b}
+.popup h3{margin:.1rem 0 .25rem;font-size:18px}
+.popup .meta{color:var(--muted);margin-bottom:.35rem}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:.35rem 0}
+.chip{background:var(--chip);color:#cde6ff;border:1px solid var(--border);
+  font-size:12px;padding:4px 8px;border-radius:999px}
+.actions{display:flex;gap:8px;margin-top:.5rem}
+.btn-cta{background:#0e243e;border:1px solid var(--border);color:#def;
+  padding:8px 10px;border-radius:10px;font-weight:700;display:inline-flex;gap:8px;align-items:center}
+.btn-cta:hover{background:#142f50}
+.poetry{font-style:italic;color:#d7e7ff;opacity:.95}
+
+/* Review Drawer */
+.drawer{position:fixed;right:16px;top:86px;width:min(380px,92vw);height:75vh;
+  background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+  padding:12px;z-index:600;box-shadow:0 20px 60px rgba(0,0,0,.35);
+  display:flex;flex-direction:column;gap:10px}
+.drawer-head{display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--border);padding-bottom:6px}
+.qa{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;color:#cfe1ff}
+.drawer-actions{display:flex;gap:8px;flex-wrap:wrap}
+.list{overflow:auto;flex:1 1 auto;display:flex;flex-direction:column;gap:10px}
+.card{border:1px solid var(--border);border-radius:12px;background:#0f1a2b;padding:10px}
+.card-title{font-weight:800;margin-bottom:2px}
+.card-sub{font-size:.92rem;color:#muted;margin-bottom:6px}
+.card-actions{margin-top:6px}
+
+/* Footer */
+.site-footer{display:flex;justify-content:space-between;gap:10px;align-items:center;
+  padding:10px 14px;border-top:1px solid var(--border);background:#0c1525}
