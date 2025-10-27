@@ -1,0 +1,4 @@
+/* Family Spot's Map – badges.css (v1) */
+.badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.badge { font-size:12px; line-height:18px; padding:2px 8px; border-radius:999px; background:#f2f2f2; border:1px solid #e5e5e5; }
+.badge[data-k="RST30"], .badge[data-k="RST90"], .badge[data-k="RSTALL"]{ font-weight:600; }
