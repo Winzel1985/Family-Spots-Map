@@ -1,11 +1,4 @@
-/* Family Spot's Map – helpers.js (v1)
-Exposes a global FSM object with:
-- safetyScore(spot), sanityScore(spot), resetScore(spot)
-- applyDerived(spot) → returns new spot with SafetyScore, SanityScore, ResetScore, badges[]
-- getBadges(spot) → array of badge keys
-- matchBadges(spot, activeBadges) → boolean (all active badges must match)
-- parseJsonLenient(text) → robust JSON parser that strips BOM, NBSP, and trailing commas
-*/
+/* Family Spot's Map – helpers.js (v1) */
 (function (global) {
 'use strict';
 
@@ -70,9 +63,9 @@ return spot;
 function parseJsonLenient(text) {
 if (typeof text !== 'string') throw new Error('parseJsonLenient expects a string');
 let t = text;
-if (t.charCodeAt(0) === 0xFEFF) t = t.slice(1); // BOM
-t = t.replace(/\u00a0/g, ' '); // NBSP
-t = t.replace(/,\s*([}\]])/g, '$1'); // trailing commas
+if (t.charCodeAt(0) === 0xFEFF) t = t.slice(1);
+t = t.replace(/\u00a0/g, ' ');
+t = t.replace(/,\s*([}\]])/g, '$1');
 t = t.replace(/[\r\t]+/g, '');
 return JSON.parse(t);
 }
