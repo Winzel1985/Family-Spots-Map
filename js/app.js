@@ -1,220 +1,274 @@
-/* Family Spot’s Map — app.js */
-let map, osm, esri, cluster, markers = [];
-let data = [];
+// Family Spot's Map – app.js (v1.1)
+let map, markersLayer, osmLayer, esriLayer;
+const markerById = new Map();
+window.ALL_SPOTS = [];
+window.ORIGINAL_SPOTS = []; // ungefiltert, ohne Derivate
+window.activeBadges = window.activeBadges || new Set();
+let imgFilter = 'all'; // all | none | has
 
-init();
-
-async function init(){
-  document.getElementById('year').textContent = new Date().getFullYear();
-
-  // Karte
-  map = L.map('map', {zoomControl:true}).setView([51.16, 10.45], 6);
-  osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap'
-  }).addTo(map);
-  // Satellit (Esri World Imagery)
-  esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 19,
-    attribution: 'Esri, Maxar, Earthstar Geographics'
-  });
-
-  // MarkerCluster oder LayerGroup
-  cluster = L.markerClusterGroup ? L.markerClusterGroup({showCoverageOnHover:false, maxClusterRadius:50}) : L.layerGroup();
-  map.addLayer(cluster);
-
-  await loadData();          // lädt spots.json (oder Fallback)
-  buildCategoryFilter();     // Dropdown befüllen
-  renderMarkers(data);       // Marker setzen
-  bindUI();                  // Buttons & Suche aktivieren
+function initMap() {
+map = L.map('map', { preferCanvas: true }).setView([54.5, 9.3], 6); // DE+DK
+osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+esriLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+maxZoom: 19, attribution: 'Esri'
+});
+markersLayer = L.layerGroup().addTo(map);
 }
 
-async function loadData(){
-  try {
-    const res = await fetch('spots.json?v=' + Date.now());
-    if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
-    const arr = await res.json();
-    if(!Array.isArray(arr)) throw new Error('spots.json ist kein Array.');
-    data = arr;
-  } catch (e) {
-    console.warn('spots.json konnte nicht geladen werden – Fallback benutzt.', e);
-    data = DEFAULT_SPOTS; // minimaler Fallback, damit die Seite startet
-  }
+function getLatLng(s){
+if (s && s.geo && typeof s.geo.lat==='number' && typeof s.geo.lng==='number') return [s.geo.lat, s.geo.lng];
+if (typeof s.lat==='number' && typeof s.lng==='number') return [s.lat, s.lng];
+if (typeof s.lat==='number' && typeof s.lon==='number') return [s.lat, s.lon];
+return null;
 }
 
-/* ------- Rendering ------- */
-
-function renderMarkers(arr){
-  cluster.clearLayers();
-  markers = [];
-  arr.forEach((spot) => {
-    if(!validSpot(spot)) return;
-    const m = L.marker([spot.lat, spot.lon], {title: spot.name});
-    m.bindPopup(popupHtml(spot), {minWidth: 260});
-    cluster.addLayer(m);
-    markers.push(m);
-  });
-  if(arr.length){
-    const b = L.latLngBounds(arr.filter(validSpot).map(s => [s.lat, s.lon]));
-    try{ map.fitBounds(b, {padding:[30,30]}); }catch{}
-  }
-  updateQA(arr);
+function spotBadgesHTML(spot){
+const keys = spot.badges || FSM.getBadges(spot);
+return `<div class="badges">${
+keys.map(k => `<span class="badge" title="${k}" data-k="${k}">${k}</span>`).join('')
+}</div>`;
 }
 
-function validSpot(s){
-  return s && typeof s.lat === 'number' && typeof s.lon === 'number'
-         && !isNaN(s.lat) && !isNaN(s.lon);
+function cardHTML(s){
+const meta = `Safety ${s.SafetyScore ?? '-'} · Sanity ${s.SanityScore ?? '-'} · ${s.ResetScore ? 'Reset '+s.ResetScore : ''}`;
+const img = s.image ? `<div style="margin:-6px -6px 8px -6px"><img src="${s.image}" alt="" style="display:block;max-width:100%;border-radius:8px"></div>` : '';
+return `
+<h3>${s.name || 'Spot'}</h3>
+<div class="meta">${meta}</div>
+${spotBadgesHTML(s)}
+`;
 }
 
-function popupHtml(s){
-  const usp = (s.usp || []).map(u => `<span class="chip">${escapeHtml(u)}</span>`).join(' ');
-  const gmaps = `https://www.google.com/maps?q=${s.lat},${s.lon}`;
-  const amap  = `https://maps.apple.com/?ll=${s.lat},${s.lon}&q=${encodeURIComponent(s.name||'Ziel')}`;
-  const cat   = s.category ? `<span class="chip">${escapeHtml(s.category)}</span>` : '';
-  return `
-    <div class="popup">
-      <h3>${escapeHtml(s.name || 'Ohne Titel')}</h3>
-      <div class="meta">${escapeHtml(s.city || '')}${s.country ? ' · ' + escapeHtml(s.country) : ''}</div>
-      <div class="chips">${cat} ${usp}</div>
-      ${s.poetry ? `<p class="poetry">„${escapeHtml(s.poetry)}”</p>` : ''}
-      <div class="actions">
-        <a class="btn-cta" href="${gmaps}" target="_blank" rel="noopener">📍 Google</a>
-        <a class="btn-cta" href="${amap}"  target="_blank" rel="noopener">🍎 Apple</a>
-      </div>
-    </div>`;
+function renderSpots(spots){
+const list = document.getElementById('list');
+list.innerHTML = '';
+markersLayer.clearLayers();
+markerById.clear();
+const bounds = [];
+
+spots.forEach(s => {
+const ll = getLatLng(s);
+if (!ll) return;
+const m = L.marker(ll);
+const html = `
+<div class="popup">
+<strong>${s.name || 'Spot'}</strong><br>
+<small>Safety ${s.SafetyScore ?? '-'} | Sanity ${s.SanityScore ?? '-'} | Reset ${s.ResetScore ?? '-'}</small>
+${spotBadgesHTML(s)}
+</div>
+`;
+m.bindPopup(html).addTo(markersLayer);
+markerById.set(s.id || `${ll[0]},${ll[1]}`, m);
+bounds.push(ll);
+
+const card = document.createElement('div');
+card.className = 'card';
+card.innerHTML = cardHTML(s);
+card.addEventListener('click', () => {
+m.openPopup();
+map.setView(m.getLatLng(), Math.max(map.getZoom(), 14), { animate: true });
+});
+list.appendChild(card);
+});
+
+if (bounds.length) map.fitBounds(L.latLngBounds(bounds).pad(0.1));
+updateStats(spots);
 }
 
-/* ------- UI ------- */
-
-function buildCategoryFilter(){
-  const sel = document.getElementById('categoryFilter');
-  const cats = Array.from(new Set(data.map(s => s.category).filter(Boolean))).sort();
-  sel.innerHTML = `<option value="">Alle Kategorien</option>` +
-    cats.map(c => `<option value="${c}">${c}</option>`).join('');
+function updateStats(spots){
+const total = (window.ORIGINAL_SPOTS||[]).length || (window.ALL_SPOTS||[]).length;
+const ok = spots.filter(s => !!getLatLng(s)).length;
+const warn = spots.filter(s => (s.SafetyScore??0)<=1 || (s.SanityScore??0)<=1).length;
+const err = total - ok;
+document.getElementById('statTotal').textContent = total;
+document.getElementById('statOk').textContent = ok;
+document.getElementById('statWarn').textContent = warn;
+document.getElementById('statErr').textContent = err;
 }
 
-function bindUI(){
-  // Import
-  const fileInput = document.getElementById('fileInput');
-  document.getElementById('btnImport').addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', e => {
-    const file = e.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const arr = JSON.parse(evt.target.result);
-        if(!Array.isArray(arr)) throw new Error('JSON muss ein Array sein.');
-        data = arr;
-        buildCategoryFilter();
-        renderMarkers(data);
-      } catch(err) {
-        alert('Ungültiges JSON: ' + err.message);
-      }
-    };
-    reader.readAsText(file);
-    fileInput.value = '';
-  });
-
-  // Export
-  document.getElementById('btnExport').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'spots_export.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 500);
-  });
-
-  // Suche & Filter
-  const searchInput = document.getElementById('searchInput');
-  const categoryFilter = document.getElementById('categoryFilter');
-  document.getElementById('btnReset').addEventListener('click', () => {
-    searchInput.value = ''; categoryFilter.value = '';
-    renderMarkers(data);
-  });
-
-  function applyFilter(){
-    const q = searchInput.value.trim().toLowerCase();
-    const cat = categoryFilter.value;
-    const filtered = data.filter(s => {
-      if(cat && s.category !== cat) return false;
-      if(!q) return true;
-      const hay = [s.name, s.city, s.category, (s.usp||[]).join(' ')].join(' ').toLowerCase();
-      return hay.includes(q);
-    });
-    renderMarkers(filtered);
-  }
-  searchInput.addEventListener('input', applyFilter);
-  categoryFilter.addEventListener('change', applyFilter);
-
-  // Satellit
-  let satelliteOn = false;
-  const btnSat = document.getElementById('btnSatellite');
-  btnSat.addEventListener('click', () => {
-    satelliteOn = !satelliteOn;
-    if(satelliteOn){ map.removeLayer(osm); esri.addTo(map); }
-    else { map.removeLayer(esri); osm.addTo(map); }
-    btnSat.classList.toggle('active', satelliteOn);
-  });
-
-  // Review Panel
-  const panel = document.getElementById('reviewPanel');
-  document.getElementById('btnReview').addEventListener('click', () => panel.classList.toggle('hidden'));
-  document.getElementById('btnCloseReview').addEventListener('click', () => panel.classList.add('hidden'));
-  document.getElementById('btnShowAll').addEventListener('click', () => renderList(data));
-  document.getElementById('btnShowNoImg').addEventListener('click', () => renderList(data.filter(s => !s.img)));
-  document.getElementById('btnShowWithImg').addEventListener('click', () => renderList(data.filter(s => s.img)));
-  renderList(data);
+function buildCategoryOptions(spots){
+const set = new Set();
+spots.forEach(s=>{
+const t = s.type;
+if (!t) return;
+if (Array.isArray(t)) t.forEach(x=> set.add(String(x)));
+else set.add(String(t));
+});
+const sel = document.getElementById('category');
+const current = sel.value;
+sel.innerHTML = `<option value="">Alle Kategorien</option>` +
+Array.from(set).sort().map(v=>`<option value="${v}">${v}</option>`).join('');
+sel.value = current || '';
 }
 
-/* ------- Review & QA ------- */
-
-function renderList(arr){
-  const box = document.getElementById('listContainer');
-  box.innerHTML = '';
-  arr.forEach((s) => {
-    const el = document.createElement('div');
-    el.className = 'card';
-    el.innerHTML = `
-      <div class="card-title">${escapeHtml(s.name || 'Ohne Titel')}</div>
-      <div class="card-sub">${escapeHtml(s.city || '')}${s.country ? ' · ' + escapeHtml(s.country) : ''} — ${escapeHtml(s.category || '')}</div>
-      ${s.poetry ? `<div class="poetry">„${escapeHtml(s.poetry)}”</div>` : ''}
-      <div class="card-actions">
-        <button class="btn small" data-action="focus">Auf Karte</button>
-      </div>
-    `;
-    el.querySelector('[data-action="focus"]').addEventListener('click', () => {
-      if(validSpot(s)){ map.setView([s.lat, s.lon], 13); }
-    });
-    box.appendChild(el);
-  });
-  updateQA(arr);
+// tolerant loader
+async function loadData(initial=true) {
+try {
+const res = await fetch('spots.json', { cache: 'no-store' });
+const txt = await res.text();
+const raw = FSM.parseJsonLenient(txt);
+window.ORIGINAL_SPOTS = Array.isArray(raw) ? raw.slice() : [];
+const spots = window.ORIGINAL_SPOTS.map(FSM.applyDerived);
+window.ALL_SPOTS = spots;
+buildCategoryOptions(spots);
+renderSpots(spots);
+updateBadgeCounts();
+} catch (err) {
+console.error('spots.json konnte nicht geladen/parsed werden:', err);
+alert('⚠️ Spots-Daten fehlerhaft. Bitte Datei prüfen oder sanitize_spots.js ausführen.');
+window.ALL_SPOTS = [];
+renderSpots([]);
+}
 }
 
-function updateQA(arr){
-  const total = arr.length;
-  const warn = arr.filter(s => !s.poetry || !s.usp || s.usp.length === 0).length;
-  const err  = arr.filter(s => !validSpot(s)).length;
-  const ok   = Math.max(0, total - warn - err);
-  setText('#qaTotal', total);
-  setText('#qaOk', ok);
-  setText('#qaWarn', warn);
-  setText('#qaErr', err);
+// Filtering
+function setBadgeActive(key, on) {
+const btns = document.querySelectorAll(`#toolbar [data-b="${key}"]`);
+btns.forEach(b => b.classList.toggle('on', !!on));
+if (on) activeBadges.add(key); else activeBadges.delete(key);
+applyFilters();
 }
 
-/* ------- Helpers ------- */
-function escapeHtml(str=''){
-  return String(str).replace(/[&<>"']/g, m => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
-  }[m]));
-}
-function setText(sel,val){ const el = document.querySelector(sel); if(el) el.textContent = val; }
+function applyFilters(){
+const all = (window.ALL_SPOTS || []);
+const q = document.getElementById('search').value.trim().toLowerCase();
+const cat = document.getElementById('category').value;
+let filtered = all.filter(s => FSM.matchBadges(s, activeBadges));
 
-/* ------- Fallback-Daten, falls spots.json fehlt ------- */
-const DEFAULT_SPOTS = [
-{"id":"demo_rheinpark_koeln","category":"playground_adventure","city":"Köln","country":"DE","name":"Rheinpark Köln (Demo)","lat":50.948,"lon":6.983,"poetry":"Zwischen Luft und Lachen wächst jedes Abenteuer Flügel.","verified":true},
-{"id":"demo_tiger_turtle_duisburg","category":"family_attraction","city":"Duisburg","country":"DE","name":"Tiger & Turtle (Demo)","lat":51.394,"lon":6.794,"poetry":"Achterbahn zu Fuß – Mut im Kreis, Staunen im Herzen.","verified":true}
-];
+if (imgFilter==='has') filtered = filtered.filter(s => !!s.image);
+if (imgFilter==='none') filtered = filtered.filter(s => !s.image);
+
+if (cat) {
+filtered = filtered.filter(s => {
+if (!s.type) return false;
+if (Array.isArray(s.type)) return s.type.map(String).includes(cat);
+return String(s.type)===cat;
+});
+}
+
+if (q) {
+filtered = filtered.filter(s => {
+const hay = [
+s.name, s.city, s.region, s.country,
+Array.isArray(s.type)? s.type.join(' ') : s.type,
+Array.isArray(s.tags)? s.tags.join(' ') : s.tags
+].filter(Boolean).join(' ').toLowerCase();
+return hay.includes(q);
+});
+}
+
+renderSpots(filtered);
+}
+
+function wireToolbar(){
+document.querySelectorAll('#toolbar [data-b]').forEach(btn=>{
+btn.addEventListener('click', ()=>{
+const key = btn.dataset.b;
+const on = !btn.classList.contains('on');
+setBadgeActive(key, on);
+});
+});
+document.getElementById('btnShowAll').addEventListener('click', ()=>{
+activeBadges.clear();
+document.querySelectorAll('#toolbar [data-b]').forEach(b=>b.classList.remove('on'));
+document.getElementById('search').value = '';
+document.getElementById('category').value = '';
+imgFilter = 'all';
+document.querySelectorAll('.panel-filters button').forEach(b=>b.classList.remove('on'));
+document.querySelector('.panel-filters [data-img="all"]').classList.add('on');
+applyFilters();
+});
+document.getElementById('search').addEventListener('input', applyFilters);
+document.getElementById('category').addEventListener('change', applyFilters);
+}
+
+function updateBadgeCounts(){
+const all = window.ALL_SPOTS || [];
+document.querySelectorAll('#toolbar [data-b]').forEach(btn=>{
+const key = btn.dataset.b;
+const rule = FSM.badgeRules[key];
+let count = 0;
+if (rule) {
+count = all.reduce((n,s)=> n + (rule(s) ? 1 : 0), 0);
+} else if (key.startsWith('RST')) {
+const target = key.replace('RST','');
+count = all.reduce((n,s)=> n + ((s.ResetScore||FSM.resetScore(s)) === target ? 1 : 0), 0);
+}
+const el = btn.querySelector('.count');
+if (el) el.textContent = count ? `(${count})` : '';
+});
+}
+
+// Panel: Ohne Bild / Mit Bild
+function wirePanelFilters(){
+document.querySelectorAll('.panel-filters button').forEach(btn=>{
+btn.addEventListener('click', ()=>{
+document.querySelectorAll('.panel-filters button').forEach(b=>b.classList.remove('on'));
+btn.classList.add('on');
+imgFilter = btn.getAttribute('data-img'); // all|none|has
+applyFilters();
+});
+});
+}
+
+// Flags & Satellit & Review
+function wireHeader(){
+// Flags nur visuell
+document.querySelectorAll('.flag').forEach(btn=> btn.addEventListener('click', ()=> btn.classList.toggle('on')));
+
+// Satellit-Layer toggle
+document.getElementById('btnSat').addEventListener('click', ()=>{
+if (map.hasLayer(esriLayer)) { map.removeLayer(esriLayer); osmLayer.addTo(map); }
+else { map.removeLayer(osmLayer); esriLayer.addTo(map); }
+});
+
+// Review: Sidebar ein/aus
+document.getElementById('btnReview').addEventListener('click', ()=>{
+const sb = document.getElementById('sidebar');
+const on = !sb.classList.contains('open');
+sb.classList.toggle('open', on);
+sb.style.display = on ? 'block' : 'none';
+});
+
+// Import
+const input = document.getElementById('fileInput');
+document.getElementById('btnImport').addEventListener('click', ()=> input.click());
+input.addEventListener('change', async (ev)=>{
+const file = ev.target.files[0];
+if (!file) return;
+const txt = await file.text();
+try {
+const raw = FSM.parseJsonLenient(txt);
+window.ORIGINAL_SPOTS = Array.isArray(raw) ? raw.slice() : [];
+window.ALL_SPOTS = window.ORIGINAL_SPOTS.map(FSM.applyDerived);
+buildCategoryOptions(window.ALL_SPOTS);
+renderSpots(window.ALL_SPOTS);
+updateBadgeCounts();
+alert(`Import OK: ${window.ALL_SPOTS.length} Spots geladen`);
+} catch(e) {
+alert('Import fehlgeschlagen: ' + e.message);
+}
+});
+
+// Export (mit Derivaten entfernt)
+document.getElementById('btnExport').addEventListener('click', ()=>{
+const cleaned = (window.ORIGINAL_SPOTS||[]);
+const blob = new Blob([JSON.stringify(cleaned, null, 2)], {type:'application/json'});
+const a = document.createElement('a');
+a.href = URL.createObjectURL(blob);
+a.download = 'spots.export.json';
+a.click();
+URL.revokeObjectURL(a.href);
+});
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+initMap();
+wireHeader();
+wireToolbar();
+wirePanelFilters();
+await loadData();
+updateBadgeCounts();
+});
