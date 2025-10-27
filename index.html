@@ -1,23 +1,31 @@
 <!doctype html>
 <html lang="de">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Family Spot’s Map</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="badges.css">
+
+<!-- Leaflet CSS (CDN) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
+
+<!-- Deine Styles -->
+<link rel="stylesheet" href="css/styles.css?v=3" />
+<link rel="stylesheet" href="badges.css?v=3" />
 </head>
 <body>
 <header class="header">
 <div class="brand">
 <div class="logo">👨‍👩‍👧‍👦</div>
+<div>
 <div class="title">Family Spot’s Map</div>
 <div class="sub">Finden · Spielen · Ankommen</div>
 </div>
+</div>
 
 <div class="controls">
-<input id="fileInput" type="file" accept="application/json,.json" style="display:none">
+<!-- Import/Export optional – funktioniert mit app.js -->
+<input id="fileInput" type="file" accept="application/json,.json" style="display:none" />
 <button id="btnImport">Import JSON</button>
 <button id="btnExport">Export JSON</button>
 <button id="btnSat">Satellit</button>
@@ -29,7 +37,7 @@
 </div>
 </header>
 
-<!-- Toolbar: Mikromomente + Badges -->
+<!-- Toolbar: Mikromomente + Badges + Suche/Kategorie -->
 <div id="toolbar" class="toolbar">
 <button data-b="RST30">30 min <span class="count"></span></button>
 <button data-b="RST90">90 min <span class="count"></span></button>
@@ -42,7 +50,7 @@
 <button data-b="CAF">Kaffee/Eis <span class="count"></span></button>
 <button data-b="WC">WC <span class="count"></span></button>
 <span class="sep"></span>
-<input id="search" class="search" placeholder="Suche: Name/Ort/Kategorie">
+<input id="search" class="search" placeholder="Suche: Name/Ort/Kategorie" />
 <select id="category"><option value="">Alle Kategorien</option></select>
 <button id="btnShowAll">Alle zeigen</button>
 </div>
@@ -65,16 +73,22 @@
 </div>
 <div id="list" class="list"></div>
 </aside>
+
 <section id="map"></section>
 </main>
 
 <footer class="footer">
-<span>© 2025 Family Spot’s · OpenStreetMap & Esri</span>
+<span>© 2025 Family Spot’s · OpenStreetMap &amp; Esri</span>
 <a href="https://github.com/" target="_blank" rel="noopener">GitHub Pages</a>
 </footer>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="helpers.js"></script>
-<script src="app.js"></script>
+<!-- Leaflet JS (CDN) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+crossorigin="anonymous"></script>
+
+<!-- Deine Scripts (Reihenfolge wichtig) -->
+<script src="helpers.js?v=3"></script>
+<script src="js/app.js?v=3"></script>
 </body>
 </html>
