@@ -1,82 +1,80 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Family Spot’s Map</title>
-
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossorigin="anonymous">
-  <!-- MarkerCluster CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
-
-  <!-- eigene Styles -->
-  <link rel="stylesheet" href="css/styles.css?v=9">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Family Spot’s Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="badges.css">
 </head>
 <body>
-<div class="page">
-  <header class="site-header">
-    <div class="title-wrap">
-      <h1>Family Spot’s Map</h1>
-      <p class="subtitle">🇩🇪 Finden · Spielen · Ankommen 🇩🇰</p>
-    </div>
-    <div class="toolbar">
-      <button id="btnImport" class="btn">Import&nbsp;JSON</button>
-      <input id="fileInput" type="file" accept="application/json" class="hidden" />
-      <button id="btnExport" class="btn btn-primary">Export&nbsp;JSON</button>
-      <button id="btnReview" class="btn">Review</button>
-      <button id="btnSatellite" class="btn">Satellit</button>
-      <label class="search-wrap">
-        <input id="searchInput" type="search" placeholder="Suche: Name/Ort/Kategorie">
-      </label>
-      <select id="categoryFilter" class="select"></select>
-      <button id="btnReset" class="btn">Alle zeigen</button>
-    </div>
-  </header>
-
-  <main id="map"></main>
-
-  <!-- Review/QA Drawer -->
-  <aside id="reviewPanel" class="drawer hidden">
-    <div class="drawer-head">
-      <strong>Entdecken & Prüfen</strong>
-      <button id="btnCloseReview" class="btn btn-ghost">✕</button>
-    </div>
-    <div class="qa">
-      <div>Gesamt: <b id="qaTotal">0</b></div>
-      <div>OK: <b id="qaOk">0</b></div>
-      <div>Warnung: <b id="qaWarn">0</b></div>
-      <div>Fehler: <b id="qaErr">0</b></div>
-    </div>
-    <div class="drawer-actions">
-      <button id="btnShowAll" class="btn small">Alle</button>
-      <button id="btnShowNoImg" class="btn small">Ohne Bild</button>
-      <button id="btnShowWithImg" class="btn small">Mit Bild</button>
-    </div>
-    <div id="listContainer" class="list"></div>
-  </aside>
-
-  <footer class="site-footer">
-    <div class="left">
-      © <span id="year"></span> Family Spot’s — OpenStreetMap &amp; Esri Imagery
-    </div>
-    <div class="right">
-      <a href="https://github.com/" target="_blank" rel="noopener">GitHub Pages</a>
-    </div>
-  </footer>
+<header class="header">
+<div class="brand">
+<div class="logo">👨‍👩‍👧‍👦</div>
+<div class="title">Family Spot’s Map</div>
+<div class="sub">Finden · Spielen · Ankommen</div>
 </div>
 
-<!-- Leaflet + MarkerCluster -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        crossorigin="anonymous"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<div class="controls">
+<input id="fileInput" type="file" accept="application/json,.json" style="display:none">
+<button id="btnImport">Import JSON</button>
+<button id="btnExport">Export JSON</button>
+<button id="btnSat">Satellit</button>
+<button id="btnReview">Review</button>
+<div class="flags">
+<button class="flag" title="Deutschland" data-country="DE">🇩🇪</button>
+<button class="flag" title="Dänemark" data-country="DK">🇩🇰</button>
+</div>
+</div>
+</header>
 
-<!-- eigene Logik -->
-<script src="js/app.js?v=9"></script>
+<!-- Toolbar: Mikromomente + Badges -->
+<div id="toolbar" class="toolbar">
+<button data-b="RST30">30 min <span class="count"></span></button>
+<button data-b="RST90">90 min <span class="count"></span></button>
+<button data-b="RSTALL">Ganzer Tag <span class="count"></span></button>
+<span class="sep"></span>
+<button data-b="FEN">Eingezäunt <span class="count"></span></button>
+<button data-b="SHA">Schatten <span class="count"></span></button>
+<button data-b="WTR">Wasser <span class="count"></span></button>
+<button data-b="PTK">Pumptrack <span class="count"></span></button>
+<button data-b="CAF">Kaffee/Eis <span class="count"></span></button>
+<button data-b="WC">WC <span class="count"></span></button>
+<span class="sep"></span>
+<input id="search" class="search" placeholder="Suche: Name/Ort/Kategorie">
+<select id="category"><option value="">Alle Kategorien</option></select>
+<button id="btnShowAll">Alle zeigen</button>
+</div>
+
+<main class="main">
+<aside id="sidebar">
+<div class="panel-head">
+<h3>Entdecken & Prüfen</h3>
+<div class="stats">
+<span>Gesamt: <b id="statTotal">0</b></span>
+<span>OK: <b id="statOk">0</b></span>
+<span>Warnung: <b id="statWarn">0</b></span>
+<span>Fehler: <b id="statErr">0</b></span>
+</div>
+<div class="panel-filters">
+<button data-img="all" class="on">Alle</button>
+<button data-img="none">Ohne Bild</button>
+<button data-img="has">Mit Bild</button>
+</div>
+</div>
+<div id="list" class="list"></div>
+</aside>
+<section id="map"></section>
+</main>
+
+<footer class="footer">
+<span>© 2025 Family Spot’s · OpenStreetMap & Esri</span>
+<a href="https://github.com/" target="_blank" rel="noopener">GitHub Pages</a>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="helpers.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
