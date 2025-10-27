@@ -3,17 +3,18 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<base href="./" /> <!-- WICHTIG: macht alle Pfade relativ zum Repo-Verzeichnis -->
 <title>Family Spot’s Map</title>
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
 
-<!-- Deine Styles (ACHTUNG: Ordnerpfade!) -->
-<link rel="stylesheet" href="css/styles.css?v=4" />
-<link rel="stylesheet" href="badges.css?v=4" />
+<!-- Deine Styles (aus Ordnern) -->
+<link rel="stylesheet" href="css/styles.css?v=5" />
+<link rel="stylesheet" href="badges.css?v=5" />
 
-<!-- simples Favicon, verhindert 404 -->
+<!-- Favicon, damit keine 404 -->
 <link rel="icon"
 href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
 </head>
@@ -89,8 +90,8 @@ href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10
 integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
 crossorigin="anonymous"></script>
 
-<!-- Reihenfolge wichtig: helpers → app -->
-<script src="helpers.js?v=4"></script>
-<script src="js/app.js?v=4"></script>
+<!-- Reihenfolge wichtig -->
+<script src="helpers.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
 </body>
 </html>
