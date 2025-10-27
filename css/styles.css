@@ -1,7 +1,6 @@
-/* Family Spot's Map – styles.css (v1.1) */
+/* Family Spot's Map – styles.css (v1.2) */
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-
 .header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;background:#0f1115;color:#fff}
 .brand{display:flex;align-items:baseline;gap:10px}
 .logo{font-size:20px}
@@ -49,3 +48,4 @@ html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Robo
 #sidebar{order:2;width:100%;max-width:none;height:42vh}
 #map{order:1;height:58vh}
 }
+
