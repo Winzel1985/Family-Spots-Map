@@ -1,13 +1,13 @@
-// Family Spot's Map – app.js (v1.1)
+// Family Spot's Map – app.js (v1.2 multi-source)
 let map, markersLayer, osmLayer, esriLayer;
 const markerById = new Map();
 window.ALL_SPOTS = [];
-window.ORIGINAL_SPOTS = []; // ungefiltert, ohne Derivate
+window.ORIGINAL_SPOTS = [];
 window.activeBadges = window.activeBadges || new Set();
-let imgFilter = 'all'; // all | none | has
+let imgFilter = 'all';
 
 function initMap() {
-map = L.map('map', { preferCanvas: true }).setView([54.5, 9.3], 6); // DE+DK
+map = L.map('map', { preferCanvas: true }).setView([54.5, 9.3], 6);
 osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
@@ -33,12 +33,24 @@ keys.map(k => `<span class="badge" title="${k}" data-k="${k}">${k}</span>`).join
 
 function cardHTML(s){
 const meta = `Safety ${s.SafetyScore ?? '-'} · Sanity ${s.SanityScore ?? '-'} · ${s.ResetScore ? 'Reset '+s.ResetScore : ''}`;
-const img = s.image ? `<div style="margin:-6px -6px 8px -6px"><img src="${s.image}" alt="" style="display:block;max-width:100%;border-radius:8px"></div>` : '';
 return `
 <h3>${s.name || 'Spot'}</h3>
 <div class="meta">${meta}</div>
 ${spotBadgesHTML(s)}
 `;
+}
+
+// farbige Marker nach ResetScore
+function markerForSpot(s){
+const ll = getLatLng(s);
+const r = (s.ResetScore || FSM.resetScore(s));
+const color = r === 'ALL' ? '#2ecc71' // grün
+: r === '90' ? '#f39c12' // orange
+: r === '30' ? '#f1c40f' // gelb
+: '#3498db'; // blau (kein Reset)
+return L.circleMarker(ll, {
+radius: 8, weight: 2, color, fillColor: color, fillOpacity: 0.6
+});
 }
 
 function renderSpots(spots){
@@ -51,7 +63,7 @@ const bounds = [];
 spots.forEach(s => {
 const ll = getLatLng(s);
 if (!ll) return;
-const m = L.marker(ll);
+const m = markerForSpot(s);
 const html = `
 <div class="popup">
 <strong>${s.name || 'Spot'}</strong><br>
@@ -88,7 +100,15 @@ document.getElementById('statWarn').textContent = warn;
 document.getElementById('statErr').textContent = err;
 }
 
-function buildCategoryOptions(spots){
+function buildCategoryOptionsFromIndex(idx){
+const sel = document.getElementById('category');
+const current = sel.value;
+sel.innerHTML = `<option value="">Alle Kategorien</option>` +
+idx.map(e => `<option value="${e.slug}">${e.name} (${e.count})</option>`).join('');
+sel.value = current || '';
+}
+
+function buildCategoryOptionsFromSpots(spots){
 const set = new Set();
 spots.forEach(s=>{
 const t = s.type;
@@ -103,27 +123,44 @@ Array.from(set).sort().map(v=>`<option value="${v}">${v}</option>`).join('');
 sel.value = current || '';
 }
 
-// tolerant loader
-async function loadData(initial=true) {
-try {
-const res = await fetch('spots.json', { cache: 'no-store' });
+async function fetchJson(url){
+const res = await fetch(url, { cache: 'no-store' });
+if (!res.ok) throw new Error(`${res.status} ${res.statusText} for ${url}`);
 const txt = await res.text();
-const raw = FSM.parseJsonLenient(txt);
+return FSM.parseJsonLenient(txt);
+}
+
+// 1) Versuche data/index.json (Ordnerstruktur), 2) Fallback: spots.json
+async function loadData() {
+try {
+const index = await fetchJson('data/index.json');
+if (Array.isArray(index) && index.length) {
+const arrays = await Promise.all(index.map(e => fetchJson(e.file)));
+const spots = arrays.flat();
+window.ORIGINAL_SPOTS = spots.slice();
+window.ALL_SPOTS = spots.map(FSM.applyDerived);
+buildCategoryOptionsFromIndex(index);
+renderSpots(window.ALL_SPOTS);
+updateBadgeCounts();
+return;
+}
+throw new Error('Empty index.json');
+} catch (e) {
+try {
+const raw = await fetchJson('spots.json');
 window.ORIGINAL_SPOTS = Array.isArray(raw) ? raw.slice() : [];
-const spots = window.ORIGINAL_SPOTS.map(FSM.applyDerived);
-window.ALL_SPOTS = spots;
-buildCategoryOptions(spots);
-renderSpots(spots);
+window.ALL_SPOTS = window.ORIGINAL_SPOTS.map(FSM.applyDerived);
+buildCategoryOptionsFromSpots(window.ALL_SPOTS);
+renderSpots(window.ALL_SPOTS);
 updateBadgeCounts();
 } catch (err) {
-console.error('spots.json konnte nicht geladen/parsed werden:', err);
-alert('⚠️ Spots-Daten fehlerhaft. Bitte Datei prüfen oder sanitize_spots.js ausführen.');
-window.ALL_SPOTS = [];
-renderSpots([]);
+console.error('Daten konnten nicht geladen werden:', err);
+alert('⚠️ Keine Daten geladen (weder data/index.json noch spots.json).');
+}
 }
 }
 
-// Filtering
+// Filter
 function setBadgeActive(key, on) {
 const btns = document.querySelectorAll(`#toolbar [data-b="${key}"]`);
 btns.forEach(b => b.classList.toggle('on', !!on));
@@ -170,18 +207,19 @@ const on = !btn.classList.contains('on');
 setBadgeActive(key, on);
 });
 });
-document.getElementById('btnShowAll').addEventListener('click', ()=>{
+document.getElementById('btnShowAll')?.addEventListener('click', ()=>{
 activeBadges.clear();
 document.querySelectorAll('#toolbar [data-b]').forEach(b=>b.classList.remove('on'));
 document.getElementById('search').value = '';
 document.getElementById('category').value = '';
 imgFilter = 'all';
 document.querySelectorAll('.panel-filters button').forEach(b=>b.classList.remove('on'));
-document.querySelector('.panel-filters [data-img="all"]').classList.add('on');
+const allBtn = document.querySelector('.panel-filters [data-img="all"]');
+if (allBtn) allBtn.classList.add('on');
 applyFilters();
 });
-document.getElementById('search').addEventListener('input', applyFilters);
-document.getElementById('category').addEventListener('change', applyFilters);
+document.getElementById('search')?.addEventListener('input', applyFilters);
+document.getElementById('category')?.addEventListener('change', applyFilters);
 }
 
 function updateBadgeCounts(){
@@ -201,66 +239,30 @@ if (el) el.textContent = count ? `(${count})` : '';
 });
 }
 
-// Panel: Ohne Bild / Mit Bild
 function wirePanelFilters(){
 document.querySelectorAll('.panel-filters button').forEach(btn=>{
 btn.addEventListener('click', ()=>{
 document.querySelectorAll('.panel-filters button').forEach(b=>b.classList.remove('on'));
 btn.classList.add('on');
-imgFilter = btn.getAttribute('data-img'); // all|none|has
+imgFilter = btn.getAttribute('data-img');
 applyFilters();
 });
 });
 }
 
-// Flags & Satellit & Review
 function wireHeader(){
-// Flags nur visuell
 document.querySelectorAll('.flag').forEach(btn=> btn.addEventListener('click', ()=> btn.classList.toggle('on')));
-
-// Satellit-Layer toggle
-document.getElementById('btnSat').addEventListener('click', ()=>{
+const sat = document.getElementById('btnSat');
+if (sat) sat.addEventListener('click', ()=>{
 if (map.hasLayer(esriLayer)) { map.removeLayer(esriLayer); osmLayer.addTo(map); }
 else { map.removeLayer(osmLayer); esriLayer.addTo(map); }
 });
-
-// Review: Sidebar ein/aus
-document.getElementById('btnReview').addEventListener('click', ()=>{
+const rev = document.getElementById('btnReview');
+if (rev) rev.addEventListener('click', ()=>{
 const sb = document.getElementById('sidebar');
 const on = !sb.classList.contains('open');
 sb.classList.toggle('open', on);
 sb.style.display = on ? 'block' : 'none';
-});
-
-// Import
-const input = document.getElementById('fileInput');
-document.getElementById('btnImport').addEventListener('click', ()=> input.click());
-input.addEventListener('change', async (ev)=>{
-const file = ev.target.files[0];
-if (!file) return;
-const txt = await file.text();
-try {
-const raw = FSM.parseJsonLenient(txt);
-window.ORIGINAL_SPOTS = Array.isArray(raw) ? raw.slice() : [];
-window.ALL_SPOTS = window.ORIGINAL_SPOTS.map(FSM.applyDerived);
-buildCategoryOptions(window.ALL_SPOTS);
-renderSpots(window.ALL_SPOTS);
-updateBadgeCounts();
-alert(`Import OK: ${window.ALL_SPOTS.length} Spots geladen`);
-} catch(e) {
-alert('Import fehlgeschlagen: ' + e.message);
-}
-});
-
-// Export (mit Derivaten entfernt)
-document.getElementById('btnExport').addEventListener('click', ()=>{
-const cleaned = (window.ORIGINAL_SPOTS||[]);
-const blob = new Blob([JSON.stringify(cleaned, null, 2)], {type:'application/json'});
-const a = document.createElement('a');
-a.href = URL.createObjectURL(blob);
-a.download = 'spots.export.json';
-a.click();
-URL.revokeObjectURL(a.href);
 });
 }
 
