@@ -1,0 +1,5 @@
+[
+{ "slug": "base", "name": "Family Spots (Basis)", "count": 98, "file": "spots.json" },
+{ "slug": "zoo", "name": "Zoos", "count": 14, "file": "data/zoo/spots.json" },
+{ "slug": "wildpark", "name": "Wildparks & Safaris", "count": 11, "file": "data/wildpark/spots.json" }
+]
